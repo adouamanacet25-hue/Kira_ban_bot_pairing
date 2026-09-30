@@ -1,0 +1,19 @@
+{
+  "name": "ban-pairing-kira-tech",
+  "version": "1.0.0",
+  "description": "Bot Telegram Ban Pairing Kira Tech - Codes WhatsApp réels via Baileys",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "@hapi/boom": "^10.0.1",
+    "pino": "^9.5.0",
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
