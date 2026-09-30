@@ -3,29 +3,49 @@
  *  🚫 BAN PAIRING KIRA TECH 🚫
  *  Auteur  : Mr Kira Tech
  *  Bot     : @Ban_bot_spam_bot
- *  Stack   : Node.js + Telegram Bot API + Baileys
+ *  Stack   : Node.js + Telegram Bot API + Baileys (ESM)
  *  Deploy  : Render Web Service
  * ═══════════════════════════════════════════════════════════
  */
 
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
-const baileys = require('@whiskeysockets/baileys');
-const makeWASocket = baileys.default;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
 const pino = require('pino');
-const makeWASocket = require('@whiskeysockets/baileys').default;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const fs = require('fs');
+const path = require('path');
+
+// ═══════════════════════════════════════════════════════════
+//  VARIABLES BAILEYS (chargées dynamiquement en ESM)
+// ═══════════════════════════════════════════════════════════
+let makeWASocket = null;
+let useMultiFileAuthState = null;
+let DisconnectReason = null;
+let fetchLatestBaileysVersion = null;
+
+async function initBaileys() {
+  const baileys = await import('@whiskeysockets/baileys');
+  makeWASocket = baileys.default;
+  useMultiFileAuthState = baileys.useMultiFileAuthState;
+  DisconnectReason = baileys.DisconnectReason;
+  fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+  console.log('✅ Baileys chargé (ESM)');
+}
+
 // ═══════════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════════
-const BOT_TOKEN   = '8602921365:AAGj0Z9scZzK-zdo2uZDqMyD8cw1mGq_R6Q';
-const BOT_IMAGE   = 'https://i.ibb.co/PG72Jkgq/3-ACDD2-BD-5-D09-497-A-8198-8-CDF8-DAC35-B7.jpg';
-const PROMO_CODE  = 'Kira_Ego';
-const FREE_LIMIT  = 5;
-const PORT        = process.env.PORT || 3000;
-const AUTH_BASE   = path.join(__dirname, 'sessions');
-const DB_FILE     = path.join(__dirname, 'users.json');
+const BOT_TOKEN  = '8602921365:AAGj0Z9scZzK-zdo2uZDqMyD8cw1mGq_R6Q';
+const BOT_IMAGE  = 'https://i.ibb.co/PG72Jkgq/3-ACDD2-BD-5-D09-497-A-8198-8-CDF8-DAC35-B7.jpg';
+const PROMO_CODE = 'Kira_Ego';
+const FREE_LIMIT = 5;
+const PORT       = process.env.PORT || 3000;
+
+// Chemin de session (Render disk monté ici)
+const AUTH_BASE = fs.existsSync('/opt/render/project/src')
+  ? '/opt/render/project/src/sessions'
+  : path.join(__dirname, 'sessions');
+
+const DB_FILE = path.join(__dirname, 'users.json');
 
 const LINKS = {
   tg_channel: 'https://t.me/+mQ3aQpCsEqI0YmY0',
@@ -69,14 +89,6 @@ function getUser(id) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  SERVEUR EXPRESS
-// ═══════════════════════════════════════════════════════════
-const app = express();
-app.get('/', (_req, res) => res.send('🚫 Ban Pairing Kira Tech — Running ✅'));
-app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
-app.listen(PORT, () => console.log(`✅ Serveur Express : port ${PORT}`));
-
-// ═══════════════════════════════════════════════════════════
 //  UTILITAIRES
 // ═══════════════════════════════════════════════════════════
 function nowDate() {
@@ -94,11 +106,18 @@ function formatPairCode(code) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  SERVEUR EXPRESS (pour Render)
+// ═══════════════════════════════════════════════════════════
+const app = express();
+app.get('/', (_req, res) => res.send('🚫 Ban Pairing Kira Tech — Running ✅'));
+app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+app.listen(PORT, () => console.log(`✅ Serveur Express : port ${PORT}`));
+
+// ═══════════════════════════════════════════════════════════
 //  BOT TELEGRAM
 // ═══════════════════════════════════════════════════════════
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 bot.on('polling_error', (e) => console.error('Polling error:', e.message));
-console.log('🚀 Bot Ban Pairing Kira Tech démarrage...');
 
 async function sendImg(chatId, caption, options = {}) {
   try {
@@ -116,7 +135,6 @@ const waSessions = new Map();
 
 // ═══════════════════════════════════════════════════════════
 //  COMMANDE WHATSAPP : .menu
-//  → Envoie image + BIENVENUE + liens WhatsApp (chaîne + groupe)
 // ═══════════════════════════════════════════════════════════
 function attachWhatsAppHandlers(sock, phone, chatId = null) {
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
@@ -680,8 +698,276 @@ Besoin d'aide ? Contacte un admin !
 
   await sendImg(msg.chat.id, caption, { reply_markup: keyboard });
 });
+// ═══════════════════════════════════════════════════════════
+//  /promos
+// ═══════════════════════════════════════════════════════════
+bot.onText(/^\/promos?$/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  const caption =
+`✨━━━━━━━━━━━━━━━━━━━━✨
+🏷 CODES PROMOS 🏷
+✨━━━━━━━━━━━━━━━━━━━━✨
+
+Si vous utilisez le code promos vous aurez droit à 5 pairing free 🆓
+
+⚠️ Warning : Seul Mr kira tech ou ses amis connaît le code
+
+📩 Donnez-nous le code :`;
+
+  const sent = await sendImg(chatId, caption);
+
+  await bot.sendMessage(chatId, '👉 Envoyez le code en réponse à ce message :', {
+    reply_to_message_id: sent.message_id,
+    reply_markup: { force_reply: true, selective: true },
+  });
+});
+
+bot.on('message', async (msg) => {
+  if (!msg.reply_to_message) return;
+  if (msg.reply_to_message.from?.id !== bot.botInfo?.id && !msg.reply_to_message.from?.is_bot) return;
+
+  const replyText = msg.reply_to_message.text || msg.reply_to_message.caption || '';
+  if (!replyText.includes('Envoyez le code en réponse')) return;
+
+  const chatId = msg.chat.id;
+  const user = getUser(chatId);
+  const code = (msg.text || '').trim();
+
+  if (code === PROMO_CODE) {
+    if (user.usedPromo) {
+      return bot.sendMessage(chatId, '⚠️ Vous avez déjà utilisé ce code promo.');
+    }
+    user.usedPromo = true;
+    user.credits += 5;
+    saveDB();
+
+    await bot.sendMessage(chatId,
+`✨━━━━━━━━━━━━━━━━━━━━✨
+🎉🎊 FÉLICITATIONS ! 🎊🎉
+✨━━━━━━━━━━━━━━━━━━━━✨
+
+╔══════════════════════════╗
+💳 Crédit ➜ 5 pair 🌀
+🎁 code promo = correct ✅
+╚══════════════════════════╝
+
+🔥 Continue comme ça ! 🔥
+✨━━━━━━━━━━━━━━━━━━━━✨`,
+      { reply_markup: { inline_keyboard: [
+        [{ text: '🚫 Lancer un pairing', callback_data: 'pair_direct' }],
+        [{ text: '📩 Inviter des personnes', callback_data: 'invite' }],
+      ] } }
+    );
+  } else {
+    await bot.sendMessage(chatId,
+`❌ Code erroné ❌ Ce code est invalide
+
+✨━━━━━━━━━━━━━━━━━━━━✨`,
+      { reply_markup: { inline_keyboard: [
+        [{ text: '📩 Inviter des personnes', callback_data: 'invite' }],
+        [{ text: '🏷 Réessayer', callback_data: 'promos' }],
+      ] } }
+    );
+  }
+});
 
 // ═══════════════════════════════════════════════════════════
+//  /users
+// ═══════════════════════════════════════════════════════════
+bot.onText(/^\/users?$/, async (msg) => {
+  const chatId = msg.chat.id;
+  const totalUsers = Object.keys(DB.users).length;
+
+  const caption =
+`✨━━━━━━━━━━━━━━━━━━━━✨
+🚫 BAN PAIRING 🚫
+⚜️ By Mr Kira Tech ⚜️
+✨━━━━━━━━━━━━━━━━━━━━✨
+
+╔══════════════════════════╗
+👥 Nombre d'utilisateurs :
+( ${totalUsers} ) 🚹🚺
+╚══════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━
+🔗 Bot : @Ban_bot_spam_bot
+🔥 Merci d'utiliser le Ban Pairing Bot ! 🔥
+✨━━━━━━━━━━━━━━━━━━━━✨`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🚀 Commencer à utiliser', callback_data: 'start_direct' }],
+      [{ text: '📢 Témoignages', callback_data: 'testimonials' }],
+    ],
+  };
+
+  await sendImg(chatId, caption, { reply_markup: keyboard });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  TÉMOIGNAGES
+// ═══════════════════════════════════════════════════════════
+async function sendTestimonials(chatId, page = 0) {
+  const connected = DB.connectedNumbers || [];
+  const total = connected.length;
+  const perPage = 10;
+  const start = page * perPage;
+  const slice = connected.slice(start, start + perPage);
+
+  if (slice.length === 0) {
+    return bot.sendMessage(chatId, '📭 Aucun numéro connecté pour le moment.');
+  }
+
+  const emojis = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+  const lines = slice.map((n, i) => `${emojis[i]} ${n}`);
+  const hasMore = start + perPage < total;
+
+  const caption =
+`✨━━━━━━━━━━━━━━━━━━━━✨
+📢 TÉMOIGNAGES 📢
+👥 Nombre de personnes connectées : ( ${total} )
+✨━━━━━━━━━━━━━━━━━━━━✨
+
+╔══════════════════════════╗
+📞 NUMÉROS CONNECTÉS (page ${page + 1})
+╚══════════════════════════╝
+
+${lines.join('\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━
+${hasMore ? '[ ➡️ SUITE ]\nClique sur le bouton pour continuer la liste…' : '[ ✅ FIN DE LA LISTE ]'}
+━━━━━━━━━━━━━━━━━━━━━━
+
+🎊🎉🍾 FÉLICITATIONS ! 🍾🎉🎊
+✨━━━━━━━━━━━━━━━━━━━━✨`;
+
+  const keyboard = { inline_keyboard: [] };
+  if (hasMore) keyboard.inline_keyboard.push([{ text: '➡️ SUITE', callback_data: `testi_${page + 1}` }]);
+  if (page > 0) keyboard.inline_keyboard.push([{ text: '⬅️ Retour', callback_data: `testi_${page - 1}` }]);
+
+  await sendImg(chatId, caption, { reply_markup: keyboard });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INVITATION
+// ═══════════════════════════════════════════════════════════
+async function showInvite(chatId) {
+  const me = await bot.getMe();
+  const refLink = `https://t.me/${me.username}?start=${chatId}`;
+
+  const caption =
+`✨━━━━━━━━━━━━━━━━━━━━✨
+📩 INVITER DES PERSONNES 🚻
+✨━━━━━━━━━━━━━━━━━━━━✨
+
+🎁 1 invitation = 1 crédit pairing 🌀
+
+Invite des personnes dans un de ces liens,
+puis ils doivent lancer le bot avec ton lien :
+
+🔗 Ton lien d'invitation :
+${refLink}
+
+📢 Chaîne Telegram
+👥 Groupe Telegram
+📢 Chaîne WhatsApp
+👥 Groupe WhatsApp
+
+👇 Clique ci-dessous`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '🔗 Copier mon lien', url: refLink }],
+      [{ text: '📢 Chaîne Telegram', url: LINKS.tg_channel }],
+      [{ text: '👥 Groupe Telegram', url: LINKS.tg_group }],
+      [{ text: '📢 Chaîne WhatsApp', url: LINKS.wa_channel }],
+      [{ text: '👥 Groupe WhatsApp', url: LINKS.wa_group }],
+    ],
+  };
+
+  await sendImg(chatId, caption, { reply_markup: keyboard });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CALLBACK QUERIES
+// ═══════════════════════════════════════════════════════════
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const data = query.data;
+  const user = getUser(chatId);
+
+  try { await bot.answerCallbackQuery(query.id); } catch (e) {}
+
+  try {
+    switch (data) {
+      case 'menu': return showMenu(chatId);
+
+      case 'pair_direct':
+        return bot.sendMessage(chatId,
+          '🚫 Tape maintenant :\n\n/pair 242XXXXXXXX\n\n📲 Remplace par ton numéro sans le (+)',
+          { parse_mode: 'HTML' });
+
+      case 'start_direct':
+        return bot.emit('text', { chat: { id: chatId }, text: '/start', from: query.from });
+      case 'link':
+        return bot.emit('text', { chat: { id: chatId }, text: '/link', from: query.from });
+      case 'contact':
+        return bot.emit('text', { chat: { id: chatId }, text: '/contact', from: query.from });
+      case 'promos':
+        return bot.emit('text', { chat: { id: chatId }, text: '/promos', from: query.from });
+      case 'users':
+        return bot.emit('text', { chat: { id: chatId }, text: '/users', from: query.from });
+      case 'invite':
+        return showInvite(chatId);
+
+      case 'check_pairings': {
+        const used = user.totalPairings;
+        const left = Math.max(0, FREE_LIMIT - used);
+        let statusLine;
+        if (used === 0) statusLine = '0/5 — reste 5 pairing 🆓';
+        else if (used === 1) statusLine = '1/5 — reste 4 pairing';
+        else if (used === 2) statusLine = '2/5 — reste 3 pairing';
+        else if (used === 3) statusLine = '3/5 — reste 2 pairing';
+        else if (used === 4) statusLine = '4/5 — reste 1 pairing';
+        else statusLine = '5/5 — reste 0 ❌ impossible de connecter';
+
+        return bot.sendMessage(chatId,
+`╔══════════════════════════╗
+📊 CHECK PAIRING
+╚══════════════════════════╝
+
+✅ Connectés : ${used}/${FREE_LIMIT}
+🆓 Reste     : ${left} pairing(s)
+
+📌 Statut : ${statusLine}
+💰 Crédits : ${user.credits}
+
+${used >= FREE_LIMIT
+  ? '❌ Limite atteinte. Invite ou utilise un code promo.'
+  : '✅ Tu peux encore appairer.'}
+
+✨━━━━━━━━━━━━━━━━━━━━✨`,
+          { reply_markup: { inline_keyboard: [
+            [{ text: '📩 Inviter des personnes', callback_data: 'invite' }],
+            [{ text: '🏷 Code promos', callback_data: 'promos' }],
+          ] } }
+        );
+      }
+
+      case 'testimonials': return sendTestimonials(chatId, 0);
+      case 'back_menu': return showMenu(chatId);
+    }
+
+    if (data.startsWith('testi_')) {
+      const page = parseInt(data.split('_')[1], 10) || 0;
+      return sendTestimonials(chatId, page);
+    }
+  } catch (e) {
+    console.error('Callback error:', e.message);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════
 //  RESTAURATION DES SESSIONS
 // ═══════════════════════════════════════════════════════════
@@ -725,11 +1011,72 @@ async function restoreSessions() {
 // ═══════════════════════════════════════════════════════════
 //  DÉMARRAGE
 // ═══════════════════════════════════════════════════════════
-bot.getMe().then((me) => {
-  console.log(`🤖 Bot connecté : @${me.username} (ID: ${me.id})`);
-  restoreSessions();
-}).catch((e) => console.error('getMe error:', e.message));
+(async () => {
+  try {
+    await initBaileys();
+    const me = await bot.getMe();
+    console.log(`🤖 Bot connecté : @${me.username} (ID: ${me.id})`);
+    await restoreSessions();
+  } catch (e) {
+    console.error('Démarrage error:', e.message);
+  }
+})();
+
+process.on('uncaughtException', (e) => console.error('uncaughtException:', e.message));
+process.on('unhandledRejection', (e) => console.error('unhandledRejection:', e?.message || e)); ni
+// ═══════════════════════════════════════════════════════════
+//  RESTAURATION DES SESSIONS
+// ═══════════════════════════════════════════════════════════
+async function restoreSessions() {
+  if (!fs.existsSync(AUTH_BASE)) return;
+  const dirs = fs.readdirSync(AUTH_BASE).filter(d => d.startsWith('session_'));
+  if (dirs.length === 0) return console.log('📂 Aucune session à restaurer.');
+
+  console.log(`♻️ Restauration de ${dirs.length} session(s)...`);
+
+  for (const dir of dirs) {
+    try {
+      const fullPath = path.join(AUTH_BASE, dir);
+      const { state, saveCreds } = await useMultiFileAuthState(fullPath);
+      if (!state.creds.registered) continue;
+
+      const { version } = await fetchLatestBaileysVersion();
+      const sock = makeWASocket({
+        version,
+        auth: state,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false,
+        browser: ['Ban Pairing Kira Tech', 'Chrome', '1.0.0'],
+      });
+
+      sock.ev.on('creds.update', saveCreds);
+      attachWhatsAppHandlers(sock, 'restored', null);
+
+      sock.ev.on('connection.update', ({ connection }) => {
+        if (connection === 'open') console.log(`✅ Session restaurée : ${dir}`);
+      });
+
+      const chatId = dir.replace('session_', '');
+      waSessions.set(chatId, { sock, phone: 'restored' });
+    } catch (e) {
+      console.error(`Erreur restauration ${dir}:`, e.message);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DÉMARRAGE
+// ═══════════════════════════════════════════════════════════
+(async () => {
+  try {
+    await initBaileys();
+    const me = await bot.getMe();
+    console.log(`🤖 Bot connecté : @${me.username} (ID: ${me.id})`);
+    await restoreSessions();
+  } catch (e) {
+    console.error('Démarrage error:', e.message);
+  }
+})();
 
 process.on('uncaughtException', (e) => console.error('uncaughtException:', e.message));
 process.on('unhandledRejection', (e) => console.error('unhandledRejection:', e?.message || e));
-
