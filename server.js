@@ -683,5 +683,54 @@ Besoin d'aide ? Contacte un admin !
 });
 
 // ═══════════════════════════════════════════════════════════
-//  /promos
+// ═══════════════════════════════════════════════════════════
+//  RESTAURATION DES SESSIONS
+// ═══════════════════════════════════════════════════════════
+async function restoreSessions() {
+  if (!fs.existsSync(AUTH_BASE)) return;
+  const dirs = fs.readdirSync(AUTH_BASE).filter(d => d.startsWith('session_'));
+  if (dirs.length === 0) return console.log('📂 Aucune session à restaurer.');
+
+  console.log(`♻️ Restauration de ${dirs.length} session(s)...`);
+
+  for (const dir of dirs) {
+    try {
+      const fullPath = path.join(AUTH_BASE, dir);
+      const { state, saveCreds } = await useMultiFileAuthState(fullPath);
+      if (!state.creds.registered) continue;
+
+      const { version } = await fetchLatestBaileysVersion();
+      const sock = makeWASocket({
+        version,
+        auth: state,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false,
+        browser: ['Ban Pairing Kira Tech', 'Chrome', '1.0.0'],
+      });
+
+      sock.ev.on('creds.update', saveCreds);
+      attachWhatsAppHandlers(sock, 'restored', null);
+
+      sock.ev.on('connection.update', ({ connection }) => {
+        if (connection === 'open') console.log(`✅ Session restaurée : ${dir}`);
+      });
+
+      const chatId = dir.replace('session_', '');
+      waSessions.set(chatId, { sock, phone: 'restored' });
+    } catch (e) {
+      console.error(`Erreur restauration ${dir}:`, e.message);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DÉMARRAGE
+// ═══════════════════════════════════════════════════════════
+bot.getMe().then((me) => {
+  console.log(`🤖 Bot connecté : @${me.username} (ID: ${me.id})`);
+  restoreSessions();
+}).catch((e) => console.error('getMe error:', e.message));
+
+process.on('uncaughtException', (e) => console.error('uncaughtException:', e.message));
+process.on('unhandledRejection', (e) => console.error('unhandledRejection:', e?.message || e));
 
