@@ -14,9 +14,8 @@ const baileys = require('@whiskeysockets/baileys');
 const makeWASocket = baileys.default;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
 const pino = require('pino');
-const fs = require('fs');
-const path = require('path');
-
+const makeWASocket = require('@whiskeysockets/baileys').default;
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 // ═══════════════════════════════════════════════════════════
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════════
